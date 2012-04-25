@@ -44,6 +44,7 @@ def handleSheet(excel,sheet,baseDir,args):
     
     headerRow = None
     softCopyCol = None
+
     dliCol = None
     mdlCol = None
     linkCells = []
@@ -54,6 +55,7 @@ def handleSheet(excel,sheet,baseDir,args):
             print(cellVal)
             if(cellVal == None):
                 continue
+
             lowerCellVal = cellVal.lower()
             if(args['fn'] == lowerCellVal):
                 headerRow = ir
@@ -64,6 +66,7 @@ def handleSheet(excel,sheet,baseDir,args):
                 mdlCol = ic
             else:
                 print(lowerCellVal)
+
     os.makedirs(sheetDir)
 
 def main():
