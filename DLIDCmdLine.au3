@@ -82,6 +82,11 @@ Func PrintHelp($args="")
 EndFunc
 
 Func getArgOrDefaultArg($Arg,$DefaultArg)
+   Local $argValue = CmdLine($Arg)
+   if($argValue = False) Then
+	  $argValue = $DefaultArg
+   Endif
+   Return $argValue
 EndFunc
 
 
@@ -90,33 +95,30 @@ EndFunc
 Local $vCmdArgs[1]
 $vCmdArgs[0] = "barcode"
 _ArrayAdd($vCmdArgs, "output")
+_ArrayAdd($vCmdArgs, "start")
+_ArrayAdd($vCmdArgs, "end")
+_ArrayAdd($vCmdArgs, "DLIDPath")
+_ArrayAdd($vCmdArgs, "DLIDTitle")
 
 _CmdLine_Parse("--",$vCmdArgs,"PrintHelp")
-Local $dliBarCode = CmdLine("barcode")
-Local $DestPath = CmdLine("output")
+Local $dliBarCode = getArgOrDefaultArg("barcode",False)
+Local $DestPath = getArgOrDefaultArg("output",False)
 
 if($dliBarCode = False or $DestPath = False) Then
    PrintHelp()
 EndIf
 
-Local $DLIDPath = CmdLine("DLIDPath")
-if($DLIDPath = False) Then
-   $DLIDPath = "C:\PR Labs\DLI Downloader 0.23\DLIDownloader0.23.exe"
-Endif
+Local $DLIDPath = getArgOrDefaultArg("DLIDPath","C:\PR Labs\DLI Downloader 0.23\DLIDownloader0.23.exe")
+Local $DLIDTitle = getArgOrDefaultArg("DLIDTitle","DLI Downloader 0.23")
+Local $startPage = getArgOrDefaultArg("start","")
+Local $endPage = getArgOrDefaultArg("end","")
 
-Local $DLIDTitle = CmdLine("DLIDTitle")
-if($DLIDTitle = False) Then
-   $DLIDTitle="DLI Downloader 0.23"
-EndIf
-
-Local $startPage =
-
-if(0) Then
+if(1) Then
 
    Local $tempDir = getTempDir()
    Local $oldRegVal = changeDLIDBooksRegKey($tempDir)
    if(execDLID($DLIDPath,$DLIDTitle)) Then
-	  Local $bookDownload = DownloadBook($dliBarCode,25,45)
+	  Local $bookDownload = DownloadBook($dliBarCode,$startPage,$endPage)
 	  closeDLID()
 	  if($bookDownload = 0) Then
 		 Local $FileList = _FileListToArray($tempDir,"*.pdf")
