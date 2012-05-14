@@ -1,3 +1,8 @@
+#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Outfile=DLIDCmdLine.exe
+#AutoIt3Wrapper_Change2CUI=y
+#AutoIt3Wrapper_Res_requestedExecutionLevel=asInvoker
+#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #cs ----------------------------------------------------------------------------
 
  AutoIt Version: 3.3.8.1
@@ -11,6 +16,7 @@
 ; Script Start - Add your code below here
 #include <File.au3>
 #include <Array.au3>
+#include "CmdLineArgParser.au3"
 
 Opt("MustDeclareVars",1)
 Opt("PixelCoordMode",0)
@@ -25,6 +31,7 @@ EndFunc
 Func execDLID($path="C:\PR Labs\DLI Downloader 0.23\DLIDownloader0.23.exe",$title="DLI Downloader 0.23")
    Run($path)
    WinWaitActive($title)
+   Return 1
 EndFunc
 
 Func closeDLID($title="DLI Downloader 0.23",$popupTitle="Select an Option")
@@ -69,21 +76,53 @@ Func DownloadBook($barCode,$startPage=0,$endPage=0)
    Return $retCode
 EndFunc
 
+Func PrintHelp($args="")
+   ConsoleWrite("usage --barcode DLIBarCode --output OutputFileOrDirectory --help PrintHelp")
+   Exit(0)
+EndFunc
+
+Func getArgOrDefaultArg($Arg,$DefaultArg)
+EndFunc
 
 
-Local $dliBarCode = 1990020047793
-Local $DestPath = @DesktopDir
+;Local $dliBarCode = 1990020047793
+;Local $DestPath = @DesktopDir
+Local $vCmdArgs[1]
+$vCmdArgs[0] = "barcode"
+_ArrayAdd($vCmdArgs, "output")
 
-Local $tempDir = getTempDir()
-Local $oldRegVal = changeDLIDBooksRegKey($tempDir)
-execDLID()
-Local $bookDownload = DownloadBook($dliBarCode,25,45)
-closeDLID()
-changeDLIDBooksRegKey($oldRegVal)
+_CmdLine_Parse("--",$vCmdArgs,"PrintHelp")
+Local $dliBarCode = CmdLine("barcode")
+Local $DestPath = CmdLine("output")
 
-if($bookDownload = 0) Then
-   Local $FileList = _FileListToArray($tempDir,"*.pdf")
-   Local $SrcFilePath = $tempDir & "\" & $FileList[1]
-   FileCopy($SrcFilePath, $DestPath, 9)
+if($dliBarCode = False or $DestPath = False) Then
+   PrintHelp()
 EndIf
 
+Local $DLIDPath = CmdLine("DLIDPath")
+if($DLIDPath = False) Then
+   $DLIDPath = "C:\PR Labs\DLI Downloader 0.23\DLIDownloader0.23.exe"
+Endif
+
+Local $DLIDTitle = CmdLine("DLIDTitle")
+if($DLIDTitle = False) Then
+   $DLIDTitle="DLI Downloader 0.23"
+EndIf
+
+Local $startPage =
+
+if(0) Then
+
+   Local $tempDir = getTempDir()
+   Local $oldRegVal = changeDLIDBooksRegKey($tempDir)
+   if(execDLID($DLIDPath,$DLIDTitle)) Then
+	  Local $bookDownload = DownloadBook($dliBarCode,25,45)
+	  closeDLID()
+	  if($bookDownload = 0) Then
+		 Local $FileList = _FileListToArray($tempDir,"*.pdf")
+		 Local $SrcFilePath = $tempDir & "\" & $FileList[1]
+		 FileCopy($SrcFilePath, $DestPath, 9)
+	  EndIf
+   EndIf
+   changeDLIDBooksRegKey($oldRegVal)
+EndIf
