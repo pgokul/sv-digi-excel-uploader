@@ -1,5 +1,6 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Outfile=DLIDCmdLine.exe
+#AutoIt3Wrapper_UseUpx=n
 #AutoIt3Wrapper_Change2CUI=y
 #AutoIt3Wrapper_Res_requestedExecutionLevel=asInvoker
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
@@ -46,19 +47,7 @@ Func changeDLIDBooksRegKey($newval,$path="HKEY_CURRENT_USER\SOFTWARE\DLIDownload
    Return $oldval
 EndFunc
 
-Func DownloadBook($barCode,$startPage=0,$endPage=0)
-   Send($barCode)
-   Send("{TAB}")
-   Send("{DEL}")
-   if($startPage <> 0) Then
-	  Send($startPage)
-   EndIf
-   if($endPage <> 0) Then
-	  Send("-")
-	  Send($endPage)
-   EndIf
-   Send("{TAB}")
-   Send("{SPACE}")
+Func ExactPixelMatch()
    Local $retCode = 2;
    While(1)
 	  Sleep(2000)
@@ -74,6 +63,61 @@ Func DownloadBook($barCode,$startPage=0,$endPage=0)
 	  EndIf
    WEnd
    Return $retCode
+EndFunc
+
+Func BoolPixelSearch($left,$top,$right,$bottom,$color)
+   PixelSearch($left,$top,$right,$bottom,$color)
+   if(@error = 1) Then
+	  Return False
+   EndIf
+   Return True
+EndFunc
+
+
+Func PixelBlockMatch()
+   Local $retCode = 2;
+   Local $left = 63
+   Local $top = 340
+   Local $right = 83
+   Local $bottom = 350
+   While(1)
+	  Sleep(2000)
+	  ; Search for green color
+	  if(BoolPixelSearch($left,$top,$right,$bottom,0x009900) = True) Then
+		 $retCode = 0
+		 ExitLoop
+	  ElseIf(BoolPixelSearch($left,$top,$right,$bottom,0xFF0000) = True) Then
+		 $retCode = 1
+		 ExitLoop
+	  Elseif(BoolPixelSearch($left,$top,$right,$bottom,0xFF00FF) = True) Then
+		 $retCode = 2
+	  Else
+		 $retCode =2
+		 ;ExitLoop
+	  EndIf
+   WEnd
+   Return $retCode
+EndFunc
+
+Func DownloadBook($barCode,$startPage=0,$endPage=0,$matchMethod="PixelBlockMatch")
+   Send($barCode)
+   Send("{TAB}")
+   Send("{DEL}")
+   if($startPage <> 0) Then
+	  Send($startPage)
+   EndIf
+   if($endPage <> 0) Then
+	  Send("-")
+	  Send($endPage)
+   EndIf
+   Send("{TAB}")
+   Send("{SPACE}")
+   Local $retCode = Call($matchMethod)
+   if(@error <> 0xDEAD) Then
+	  Return $retCode
+   Else
+	  Return PixelBlockMatch()
+   EndIf
 EndFunc
 
 Func PrintHelp($args="")
