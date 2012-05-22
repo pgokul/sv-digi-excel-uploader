@@ -47,8 +47,17 @@ class excelHandler:
         sheet.Activate()
 
 def parseOptions():
-    parser = argparse.ArgumentParser
-    parser.add_argument('inputFile','-if',dest='if',required=True,help='The input excel file to be read')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--inputFile','-if',dest=INPUT_FILE,required=True,help='The input excel file to be read')
+    parser.add_argument('--outputDir','-od',dest=OUTPUT_FOLDER,required=True,help='The output directory')
+    parser.add_argument('--SoftCopyColName','-sc',dest=SOFTCOPY,required=False,help='The header text for the soft copy available column',default='softcopy')
+    parser.add_argument('--DLIBarcodeColName','-dbc',dest=DLI_BARCODE,required=False,help='The header text for the DLI Barcode column',default='DLI Barcode')
+    parser.add_argument('--MaranDogLinkColName','-mdc',dest=MARAN_LINK,required=False,help='The header text for the Maran\'s Dog link column',default='Maran\'s Dog link')
+    parser.add_argument('--OtherLinksColName','-olc',dest=OTHER_LINKS,required=False,help='The header text for the Other Links column',default='Other Links')
+    parser.add_argument('--PrabhandamColName','-pc',dest=PRABHANDAM,required=False,help='The header text for the Prabhandam column',default='Prabhandam')
+    parser.add_argument('--AuthorColName','-ac',dest=AUTHOR,required=False,help='The header text for the Author column',default='Author')
+    parser.add_argument('--PublisherColName','-pbc',dest=PUBLISHER,required=False,help='The header text for the Publisher column',default='Publisher')
+
     args = parser.parse_args();
     return args
 
@@ -113,7 +122,7 @@ def downloadURL(url,dirPath):
     f.close()
 
 def handleSheet(excel,sheet,baseDir,args):
-    name = sheet.name;
+    name = sheet.name
     sheetDir = os.path.join(baseDir,name)
     excel.makeSheetActive(sheet)
     usedRange = sheet.UsedRange
@@ -136,20 +145,22 @@ def handleSheet(excel,sheet,baseDir,args):
                 filename = string.join([curPrabhandam,author,publisher,dliCode],"-")
                 filename = string.join([filename,"pdf"],".")
                 fullpath = os.path.join(filepath,filename)
-                DLID.download(dliCode,fullpath)
-            if(mdlLink != "Unknown"):
-                downloadURL(mdlLink,filepath)
+                #DLID.download(dliCode,fullpath)
+            #if(mdlLink != "Unknown"):
+            #    downloadURL(mdlLink,filepath)
             if(otherURL!="Unknown"):
                 urls = string.split(otherURL,";")
-                map(downloadURL,urls,[filepath] * len(urls))
+                #map(downloadURL,urls,[filepath] * len(urls))
             #We have a soft copy
 
 def main():
     args = {}
+    
     if(len(sys.argv) != 1):
-        args = parseOptions();
+        argsns = parseOptions()
+        args = vars(argsns)
     else:
-        args[INPUT_FILE]= 'F:\DhivyaPrabhandam.xlsx'
+        args[INPUT_FILE]= 'F:\SV\sv-digi-uploader\DhivyaPrabhandam.xlsx'
         args[OUTPUT_FOLDER] = 'F:\output'
         args[SOFTCOPY] = 'softcopy'
         args[DLI_BARCODE] = 'DLI Barcode'
@@ -167,7 +178,6 @@ def main():
     sheets = excel.getSheets()
     for sheet in sheets:
         handleSheet(excel,sheet,baseDir,args)
-
     
 
 if(__name__ == '__main__'):
