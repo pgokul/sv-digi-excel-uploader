@@ -1,7 +1,15 @@
+import DLID
+import urllib2
+import urllib
+import urlparse
+import string
 import os
+import errno
 import sys
 import argparse
 import clr
+import itertools
+
 clr.AddReference("Microsoft.Office.Interop.Excel")
 import Microsoft.Office.Interop.Excel as Excel
 
@@ -77,6 +85,33 @@ def mkdir_p(path):
             pass
         else: raise
 
+def getValueOrDefaultValue(cellVal,defaultVal):
+    value = defaultVal
+    temp = cellVal.Value()
+    if(temp != None and temp != ""):
+        value = temp
+    return value
+
+def url2name(url):
+    return os.path.basename(urllib.unquote(urlparse.urlsplit(url)[2]))
+
+def downloadURL(url,dirPath):
+    localName = url2name(url)
+    req = urllib2.Request(url)
+    r = urllib2.urlopen(req)
+    if r.info().has_key('Content-Disposition'):
+        # If the response has Content-Disposition, we take file name from it
+        localName = r.info()['Content-Disposition'].split('filename=')[1]
+        if localName[0] == '"' or localName[0] == "'":
+            localName = localName[1:-1]
+    elif r.url != url: 
+        # if we were redirected, the real file name we take from the final URL
+        localName = url2name(r.url)
+    fullpath = os.path.join(dirPath,localName)
+    f = open(fullpath, 'wb')
+    f.write(r.read())
+    f.close()
+
 def handleSheet(excel,sheet,baseDir,args):
     name = sheet.name;
     sheetDir = os.path.join(baseDir,name)
@@ -88,18 +123,26 @@ def handleSheet(excel,sheet,baseDir,args):
     headerCols = getHeaderCols(usedRange,args)
     # try to get the coloum number that has the value "SoftCopy"
     for ir in range(2,numRows+1):
-        cellVal = usedRange.Cells(ir,headerCols[PRABHANDAM]).Value()
-        if(cellVal != None and cellVal != ""):
-            curPrabhandam = cellVal
-        if(usedRange.Cells(ir,headerCols[SOFTCOPY]).Value() == "Y"):
-            author = usedRange.Cells(ir,headerCols[AUTHOR]).Value()
-            publisher = usedRange.Cells(ir,headerCols[PUBLISHER]).Value()
+        curPrabhandam = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[PRABHANDAM]),curPrabhandam)
+        if(getValueOrDefaultValue(usedRange.Cells(ir,headerCols[SOFTCOPY]),"N") == "Y"):
+            author = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[AUTHOR]),"Unknown")
+            publisher = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[PUBLISHER]),"Unknown")
             filepath = os.path.join(sheetDir,curPrabhandam,author,publisher)
+            dliCode = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[DLI_BARCODE]),"Unknown")
+            mdlLink = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[MARAN_LINK]),"Unknown")
+            otherURL = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[OTHER_LINKS]),"Unknown")
             mkdir_p(filepath)
-            print("Have a soft copy for the prabhandam:"+curPrabhandam)
+            if(dliCode != "Unknown"):
+                filename = string.join([curPrabhandam,author,publisher,dliCode],"-")
+                filename = string.join([filename,"pdf"],".")
+                fullpath = os.path.join(filepath,filename)
+                DLID.download(dliCode,fullpath)
+            if(mdlLink != "Unknown"):
+                downloadURL(mdlLink,filepath)
+            if(otherURL!="Unknown"):
+                urls = string.split(otherURL,";")
+                map(downloadURL,urls,[filepath] * len(urls))
             #We have a soft copy
-
-    #os.makedirs(sheetDir)
 
 def main():
     args = {}
