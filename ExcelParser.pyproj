@@ -15,6 +15,10 @@
     <OutputPath>.</OutputPath>
     <Name>ExcelParser</Name>
     <RootNamespace>ExcelParser</RootNamespace>
+    <CommandLineArguments>-if "F:\SV\sv-digi-uploader\DhivyaPrabhandam.xlsx" -od "f:\output</CommandLineArguments>
+    <InterpreterPath />
+    <DebugStdLib>False</DebugStdLib>
+    <InterpreterArguments />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
