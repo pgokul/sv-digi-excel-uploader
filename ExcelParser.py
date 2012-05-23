@@ -8,9 +8,8 @@ import errno
 import sys
 import argparse
 import clr
-import itertools
-
 clr.AddReference("Microsoft.Office.Interop.Excel")
+
 import Microsoft.Office.Interop.Excel as Excel
 
 INPUT_FILE = 'if'
@@ -22,6 +21,10 @@ PRABHANDAM = 'pn'
 AUTHOR = 'an'
 PUBLISHER = 'pbn'
 MARAN_LINK = 'mdl'
+COMMENTARY_NAME = 'cn'
+DRY_RUN = 'dr'
+args = {}
+
 
 class excelHandler:
     def __init__(self):
@@ -46,6 +49,12 @@ class excelHandler:
     def makeSheetActive(self,sheet):
         sheet.Activate()
 
+    def close(self):
+        self.__workBook__.Close(False)
+
+    def quit(self):
+        self.__excel__.Quit()
+
 def parseOptions():
     parser = argparse.ArgumentParser()
     parser.add_argument('--inputFile','-if',dest=INPUT_FILE,required=True,help='The input excel file to be read')
@@ -57,18 +66,20 @@ def parseOptions():
     parser.add_argument('--PrabhandamColName','-pc',dest=PRABHANDAM,required=False,help='The header text for the Prabhandam column',default='Prabhandam')
     parser.add_argument('--AuthorColName','-ac',dest=AUTHOR,required=False,help='The header text for the Author column',default='Author')
     parser.add_argument('--PublisherColName','-pbc',dest=PUBLISHER,required=False,help='The header text for the Publisher column',default='Publisher')
+    parser.add_argument('--CommentaryColName','-cnc',dest=COMMENTARY_NAME,required=False,help='The header text for the Commentary Name column',default='CommentaryName')
+    parser.add_argument('--DryRun','-dr',dest=DRY_RUN,required=False,help='Dont Download anything just create folders',default=False,action="store_true")
 
-    args = parser.parse_args();
-    return args
+    pargs = parser.parse_args();
+    return pargs
 
-def makeLower(args):
+def makeLower():
     lowerArgs = {}
     for k,v in args.iteritems():
         lowerArgs[k] = v.lower()
     return lowerArgs
               
 
-def getHeaderCols(usedRange,args):
+def getHeaderCols(usedRange):
     cols = {}
     numRows = usedRange.Rows.count
     numCols = usedRange.Columns.count
@@ -121,41 +132,53 @@ def downloadURL(url,dirPath):
     f.write(r.read())
     f.close()
 
-def handleSheet(excel,sheet,baseDir,args):
+def downloadDLI(barcode,dirPath,commentaryName,author):
+    filename = string.join([author,commentaryName,barcode],"_")
+    filename = string.join([filename,"pdf"],".")
+    fullpath = os.path.join(dirPath,filename)
+    if(args[DRY_RUN] == False):
+        DLID.download(barcode,fullpath)
+
+
+def handleSheet(excel,sheet,baseDir):
     name = sheet.name
     sheetDir = os.path.join(baseDir,name)
     excel.makeSheetActive(sheet)
     usedRange = sheet.UsedRange
     numRows = usedRange.Rows.count
     curPrabhandam = None
+    CommnentaryName = ""
 
-    headerCols = getHeaderCols(usedRange,args)
+    headerCols = getHeaderCols(usedRange)
     # try to get the coloum number that has the value "SoftCopy"
     for ir in range(2,numRows+1):
+        oldPrabhandamName = curPrabhandam
         curPrabhandam = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[PRABHANDAM]),curPrabhandam)
+        if(oldPrabhandamName != curPrabhandam):
+            CommnentaryName = ""
+        CommnentaryName = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[COMMENTARY_NAME]),CommnentaryName)
         if(getValueOrDefaultValue(usedRange.Cells(ir,headerCols[SOFTCOPY]),"N") == "Y"):
             author = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[AUTHOR]),"Unknown")
             publisher = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[PUBLISHER]),"Unknown")
-            filepath = os.path.join(sheetDir,curPrabhandam,author,publisher)
+            filepath = os.path.join(sheetDir,curPrabhandam,CommnentaryName,author,publisher)
             dliCode = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[DLI_BARCODE]),"Unknown")
             mdlLink = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[MARAN_LINK]),"Unknown")
             otherURL = getValueOrDefaultValue(usedRange.Cells(ir,headerCols[OTHER_LINKS]),"Unknown")
             mkdir_p(filepath)
             if(dliCode != "Unknown"):
-                filename = string.join([curPrabhandam,author,publisher,dliCode],"-")
-                filename = string.join([filename,"pdf"],".")
-                fullpath = os.path.join(filepath,filename)
-                #DLID.download(dliCode,fullpath)
-            #if(mdlLink != "Unknown"):
-            #    downloadURL(mdlLink,filepath)
+                barcodes = string.split(dliCode,";")
+                map(downloadDLI,barcodes,[filepath] * len(barcodes),[CommnentaryName] * len(barcodes),[author] * len(barcodes))
+            if(mdlLink != "Unknown"):
+                urls = string.split(mdlLink,";")
+                if(args[DRY_RUN] == False):
+                    map(downloadURL,urls,[filepath] * len(urls))
             if(otherURL!="Unknown"):
                 urls = string.split(otherURL,";")
-                #map(downloadURL,urls,[filepath] * len(urls))
+                if(args[DRY_RUN] == False):
+                    map(downloadURL,urls,[filepath] * len(urls))
             #We have a soft copy
 
 def main():
-    args = {}
-    
     if(len(sys.argv) != 1):
         argsns = parseOptions()
         args = vars(argsns)
@@ -169,16 +192,22 @@ def main():
         args[PRABHANDAM] = 'Prabhandam'
         args[AUTHOR] = 'Author'
         args[PUBLISHER] = 'Publisher'
+        args[COMMENTARY_NAME] = 'CommentaryName'
+        args[DRY_RUN] = False
 
-    args = makeLower(args)
+    args = makeLower()
     basePath = args[OUTPUT_FOLDER]
     excel = excelHandler()
 
     baseDir = os.path.join(basePath,excel.open(args['if']))
     sheets = excel.getSheets()
     for sheet in sheets:
-        handleSheet(excel,sheet,baseDir,args)
-    
+        try:
+            handleSheet(excel,sheet,baseDir)
+        except:
+            pass
+    excel.close()
+    excel.quit()
 
 if(__name__ == '__main__'):
     main()
