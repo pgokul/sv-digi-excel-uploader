@@ -75,7 +75,11 @@ def parseOptions():
 def makeLower():
     lowerArgs = {}
     for k,v in args.iteritems():
-        lowerArgs[k] = v.lower()
+        try:
+            lowerArgs[k] = v.lower()
+        except:
+            lowerArgs[k] = v
+            pass
     return lowerArgs
               
 
@@ -179,6 +183,7 @@ def handleSheet(excel,sheet,baseDir):
             #We have a soft copy
 
 def main():
+    global args
     if(len(sys.argv) != 1):
         argsns = parseOptions()
         args = vars(argsns)
@@ -196,6 +201,7 @@ def main():
         args[DRY_RUN] = False
 
     args = makeLower()
+    vargs = args
     basePath = args[OUTPUT_FOLDER]
     excel = excelHandler()
 
