@@ -1,3 +1,4 @@
+import logging
 import tempfile
 import DLID
 import urllib2
@@ -154,13 +155,10 @@ def doDownloadAction(downloadFunc,downloadFuncArg,fullpath):
     return
  
 def actualDownloadUrl(urlHandle,fullpath):
-    tempfilehandle = tempfile.TemporaryFile()
+    tempfilehandle = tempfile.NamedTemporaryFile(delete=False,dir=os.path.dirname(fullpath))
     tempfilehandle.write(urlHandle.read())
-    tempfilehandle.seek(0)
-    f = open(fullpath, 'wb')
-    f.write(tempfilehandle.read())
-    f.close()
     tempfilehandle.close()
+    os.rename(tempfilehandle.name,fullpath)
     return
 
 def downloadURL(url,dirPath):
@@ -184,7 +182,7 @@ def downloadDLI(barcode,dirPath,commentaryName,author):
     filename = string.join([author,commentaryName,barcode],"_")
     filename = string.join([filename,"pdf"],".")
     fullpath = os.path.join(dirPath,filename)
-    #doDownloadAction(DLID.download,barcode,fullpath)
+    doDownloadAction(DLID.download,barcode,fullpath)
     return
 
 def handleSheet(excel,sheet,baseDir):
