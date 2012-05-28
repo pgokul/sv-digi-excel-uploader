@@ -23,8 +23,14 @@ PUBLISHER = 'pbn'
 MARAN_LINK = 'mdl'
 COMMENTARY_NAME = 'cn'
 DRY_RUN = 'dr'
+FORCE_DOWNLOAD = 'fd'
 args = {}
 
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    return type('Enum', (), enums)
+
+DOWNLOAD_ACTION = enum('NO_ACTION','DOWNLOAD','CREATE_FILE')
 
 class excelHandler:
     def __init__(self):
@@ -68,6 +74,7 @@ def parseOptions():
     parser.add_argument('--PublisherColName','-pbc',dest=PUBLISHER,required=False,help='The header text for the Publisher column',default='Publisher')
     parser.add_argument('--CommentaryColName','-cnc',dest=COMMENTARY_NAME,required=False,help='The header text for the Commentary Name column',default='CommentaryName')
     parser.add_argument('--DryRun','-dr',dest=DRY_RUN,required=False,help='Dont Download anything just create folders',default=False,action="store_true")
+    parser.add_argument('--ForceDownload','-f',dest=FORCE_DOWNLOAD,required=False,help='Force Download even if file exists',default=False,action="store_true")
 
     pargs = parser.parse_args();
     return pargs
@@ -119,6 +126,38 @@ def getValueOrDefaultValue(cellVal,defaultVal):
 def url2name(url):
     return os.path.basename(urllib.unquote(urlparse.urlsplit(url)[2]))
 
+def shouldDownload(fullpath):
+    if(args[DRY_RUN] == True):
+        if(os.path.exists(fullpath)):
+            return DOWNLOAD_ACTION.NO_ACTION
+        else:
+            return DOWNLOAD_ACTION.CREATE_FILE
+    else:
+        if(args[FORCE_DOWNLOAD] == False and  os.path.exists(fullpath) and os.path.getsize(fullpath) !=0):
+            return DOWNLOAD_ACTION.NO_ACTION
+        return DOWNLOAD_ACTION.DOWNLOAD
+
+def doDownloadAction(downloadFunc,downloadFuncArg,fullpath):
+    dac = shouldDownload(fullpath)
+    if(dac == DOWNLOAD_ACTION.NO_ACTION):
+        return
+    elif(dac == DOWNLOAD_ACTION.CREATE_FILE):
+        f= open(fullpath,'wb')
+        f.close()
+        return
+    elif(dac == DOWNLOAD_ACTION.DOWNLOAD):
+        downloadFunc(downloadFuncArg,fullpath)
+        return
+    else:
+        raise " Unknown download action"
+    return
+ 
+def actualDownloadUrl(urlHandle,fullpath):
+    f = open(fullpath, 'wb')
+    f.write(urlHandle.read())
+    f.close()
+    return
+
 def downloadURL(url,dirPath):
     localName = url2name(url)
     req = urllib2.Request(url)
@@ -132,17 +171,16 @@ def downloadURL(url,dirPath):
         # if we were redirected, the real file name we take from the final URL
         localName = url2name(r.url)
     fullpath = os.path.join(dirPath,localName)
-    f = open(fullpath, 'wb')
-    f.write(r.read())
-    f.close()
+    doDownloadAction(actualDownloadUrl,r,fullpath)
+    return
+    
 
 def downloadDLI(barcode,dirPath,commentaryName,author):
     filename = string.join([author,commentaryName,barcode],"_")
     filename = string.join([filename,"pdf"],".")
     fullpath = os.path.join(dirPath,filename)
-    if(args[DRY_RUN] == False):
-        DLID.download(barcode,fullpath)
-
+    doDownloadAction(DLID.download,barcode,fullpath)
+    return
 
 def handleSheet(excel,sheet,baseDir):
     name = sheet.name
@@ -174,12 +212,10 @@ def handleSheet(excel,sheet,baseDir):
                 map(downloadDLI,barcodes,[filepath] * len(barcodes),[CommnentaryName] * len(barcodes),[author] * len(barcodes))
             if(mdlLink != "Unknown"):
                 urls = string.split(mdlLink,";")
-                if(args[DRY_RUN] == False):
-                    map(downloadURL,urls,[filepath] * len(urls))
+                map(downloadURL,urls,[filepath] * len(urls))
             if(otherURL!="Unknown"):
                 urls = string.split(otherURL,";")
-                if(args[DRY_RUN] == False):
-                    map(downloadURL,urls,[filepath] * len(urls))
+                map(downloadURL,urls,[filepath] * len(urls))
             #We have a soft copy
 
 def main():
